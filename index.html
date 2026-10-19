@@ -15,6 +15,7 @@
     --garage: #1f9d6b;
     --light: #7c4dcc;
     --light-off: #5b6577;
+    --portone: #b4532f;
     --confirm: #d98a00;
     --ok: #3ba55d;
     --err: #d9534f;
@@ -46,6 +47,7 @@
   #garage { background: var(--garage); }
   #light { background: var(--light); }
   #lightOff { background: var(--light-off); }
+  #portone { background: var(--portone); }
   .door.confirm { background: var(--confirm); }
   .door.sent { background: var(--ok); }
   .door.error { background: var(--err); }
@@ -79,6 +81,7 @@
   <button class="door" id="gate" type="button" data-key="cancelloUrl" data-label="Cancello" data-verb="aprire">Cancello</button>
   <button class="door" id="garage" type="button" data-key="garageUrl" data-label="Garage" data-verb="aprire">Garage</button>
   <button class="door" id="light" type="button" data-key="luceUrl" data-label="Accendi luce" data-confirm="per accendere la luce" hidden>Accendi luce</button>
+  <button class="door" id="portone" type="button" data-key="portoneUrl" data-label="Apri portone" data-confirm="per aprire il portone" hidden>Apri portone</button>
   <button class="door" id="lightOff" type="button" data-key="luceOffUrl" data-label="Spegni luce" data-confirm="per spegnere la luce" hidden>Spegni luce</button>
 </main>
 
@@ -90,6 +93,9 @@
     </label>
     <label>Indirizzo del garage
       <input id="garageUrl" type="password" inputmode="url" placeholder="https://api-v3.voicemonkey.io/trigger?...">
+    </label>
+    <label>Indirizzo del portone (facoltativo)
+      <input id="portoneUrl" type="password" inputmode="url" placeholder="https://api-v3.voicemonkey.io/trigger?...">
     </label>
     <label>Indirizzo per accendere la luce (facoltativo)
       <input id="lightUrl" type="password" inputmode="url" placeholder="https://api-v3.voicemonkey.io/trigger?...">
@@ -105,7 +111,7 @@
 
 <script>
 (function () {
-  var KEYS = { gate: "cancelloUrl", garage: "garageUrl", light: "luceUrl", lightOff: "luceOffUrl" };
+  var KEYS = { gate: "cancelloUrl", garage: "garageUrl", light: "luceUrl", lightOff: "luceOffUrl", portone: "portoneUrl" };
   var memory = {}; // se il browser non permette di salvare, si usa solo per questa sessione
 
   function load(key) {
@@ -118,7 +124,7 @@
   }
   function clearAll() {
     memory = {};
-    try { localStorage.removeItem(KEYS.gate); localStorage.removeItem(KEYS.garage); localStorage.removeItem(KEYS.light); localStorage.removeItem(KEYS.lightOff); } catch (e) {}
+    try { localStorage.removeItem(KEYS.gate); localStorage.removeItem(KEYS.garage); localStorage.removeItem(KEYS.light); localStorage.removeItem(KEYS.lightOff); localStorage.removeItem(KEYS.portone); } catch (e) {}
   }
 
   var main = document.getElementById("main");
@@ -133,6 +139,7 @@
     settingsBtn.hidden = !ready;
     document.getElementById("light").hidden = !load(KEYS.light);
     document.getElementById("lightOff").hidden = !load(KEYS.lightOff);
+    document.getElementById("portone").hidden = !load(KEYS.portone);
   }
 
   document.getElementById("setupForm").addEventListener("submit", function (e) {
@@ -141,7 +148,8 @@
       { key: KEYS.gate, el: document.getElementById("gateUrl") },
       { key: KEYS.garage, el: document.getElementById("garageUrl") },
       { key: KEYS.light, el: document.getElementById("lightUrl") },
-      { key: KEYS.lightOff, el: document.getElementById("lightOffUrl") }
+      { key: KEYS.lightOff, el: document.getElementById("lightOffUrl") },
+      { key: KEYS.portone, el: document.getElementById("portoneUrl") }
     ];
     var i, v;
     for (i = 0; i < fields.length; i++) {
@@ -210,6 +218,7 @@
   wire(document.getElementById("garage"));
   wire(document.getElementById("light"));
   wire(document.getElementById("lightOff"));
+  wire(document.getElementById("portone"));
 
   show();
 })();
