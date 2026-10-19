@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Cancello e garage</title>
+<style>
+  :root {
+    --bg: #15181d;
+    --panel: #1f242b;
+    --text: #f2f4f7;
+    --muted: #9aa4b1;
+    --gate: #2f6fed;
+    --garage: #1f9d6b;
+    --light: #7c4dcc;
+    --light-off: #5b6577;
+    --confirm: #d98a00;
+    --ok: #3ba55d;
+    --err: #d9534f;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+    gap: 20px;
+  }
+  h1 { font-size: 1.4rem; font-weight: 600; margin: 0; }
+  .buttons { flex: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; min-height: 0; }
+  @media (max-width: 600px) { .buttons { grid-template-columns: 1fr; } }
+  .door {
+    border: 0; border-radius: 20px; color: #fff;
+    font: inherit; font-size: 2.4rem; font-weight: 700;
+    cursor: pointer; padding: 16px; min-height: 140px;
+    transition: background-color .15s ease, transform .1s ease;
+  }
+  .door:active { transform: scale(.98); }
+  .door:focus-visible { outline: 4px solid #fff; outline-offset: 4px; }
+  .door small { display: block; font-size: 1.2rem; font-weight: 500; margin-top: 10px; opacity: .9; }
+  #gate { background: var(--gate); }
+  #garage { background: var(--garage); }
+  #light { background: var(--light); }
+  #lightOff { background: var(--light-off); }
+  .door.confirm { background: var(--confirm); }
+  .door.sent { background: var(--ok); }
+  .door.error { background: var(--err); }
+  .bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .link {
+    background: none; border: 0; color: var(--muted); font: inherit; font-size: 1rem;
+    text-decoration: underline; cursor: pointer; padding: 8px;
+  }
+  form { background: var(--panel); border-radius: 16px; padding: 24px; display: grid; gap: 16px; max-width: 720px; }
+  label { display: grid; gap: 8px; font-weight: 600; }
+  input {
+    font: inherit; padding: 14px; border-radius: 10px; border: 1px solid #3a424d;
+    background: var(--bg); color: var(--text); width: 100%;
+  }
+  input:focus-visible { outline: 3px solid var(--gate); }
+  .help { color: var(--muted); font-size: .95rem; line-height: 1.5; margin: 0; }
+  .save { background: var(--gate); color: #fff; border: 0; border-radius: 12px; font: inherit; font-weight: 700; font-size: 1.2rem; padding: 16px; cursor: pointer; }
+  .msg { min-height: 1.4em; color: var(--err); margin: 0; }
+  [hidden] { display: none !important; }
+  @media (prefers-reduced-motion: reduce) { .door { transition: none; } }
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <h1>Cancello e garage</h1>
+  <button class="link" id="settingsBtn" type="button" hidden>Impostazioni</button>
+</div>
+
+<main id="main" class="buttons" hidden>
+  <button class="door" id="gate" type="button" data-key="cancelloUrl" data-label="Cancello" data-verb="aprire">Cancello</button>
+  <button class="door" id="garage" type="button" data-key="garageUrl" data-label="Garage" data-verb="aprire">Garage</button>
+  <button class="door" id="light" type="button" data-key="luceUrl" data-label="Accendi luce" data-confirm="per accendere la luce" hidden>Accendi luce</button>
+  <button class="door" id="lightOff" type="button" data-key="luceOffUrl" data-label="Spegni luce" data-confirm="per spegnere la luce" hidden>Spegni luce</button>
+</main>
+
+<section id="setup" hidden>
+  <form id="setupForm" autocomplete="off">
+    <p class="help">Incolla qui i due indirizzi di attivazione di Voice Monkey. Vengono salvati solo in questo browser e non fanno parte della pagina. Per aggiungere o cambiare un solo indirizzo compila solo quel campo.</p>
+    <label>Indirizzo del cancello
+      <input id="gateUrl" type="password" inputmode="url" placeholder="https://api-v3.voicemonkey.io/trigger?...">
+    </label>
+    <label>Indirizzo del garage
+      <input id="garageUrl" type="password" inputmode="url" placeholder="https://api-v3.voicemonkey.io/trigger?...">
+    </label>
+    <label>Indirizzo per accendere la luce (facoltativo)
+      <input id="lightUrl" type="password" inputmode="url" placeholder="https://api-v3.voicemonkey.io/trigger?...">
+    </label>
+    <label>Indirizzo per spegnere la luce (facoltativo)
+      <input id="lightOffUrl" type="password" inputmode="url" placeholder="https://api-v3.voicemonkey.io/trigger?...">
+    </label>
+    <p class="msg" id="setupMsg" role="alert"></p>
+    <button class="save" type="submit">Salva indirizzi</button>
+    <button class="link" id="resetBtn" type="button">Cancella indirizzi salvati</button>
+  </form>
+</section>
+
+<script>
+(function () {
+  var KEYS = { gate: "cancelloUrl", garage: "garageUrl", light: "luceUrl", lightOff: "luceOffUrl" };
+  var memory = {}; // se il browser non permette di salvare, si usa solo per questa sessione
+
+  function load(key) {
+    try { var v = localStorage.getItem(key); if (v) return v; } catch (e) {}
+    return memory[key] || "";
+  }
+  function save(key, value) {
+    memory[key] = value;
+    try { localStorage.setItem(key, value); return true; } catch (e) { return false; }
+  }
+  function clearAll() {
+    memory = {};
+    try { localStorage.removeItem(KEYS.gate); localStorage.removeItem(KEYS.garage); localStorage.removeItem(KEYS.light); localStorage.removeItem(KEYS.lightOff); } catch (e) {}
+  }
+
+  var main = document.getElementById("main");
+  var setup = document.getElementById("setup");
+  var settingsBtn = document.getElementById("settingsBtn");
+  var setupMsg = document.getElementById("setupMsg");
+
+  function show() {
+    var ready = load(KEYS.gate) && load(KEYS.garage);
+    main.hidden = !ready;
+    setup.hidden = !!ready;
+    settingsBtn.hidden = !ready;
+    document.getElementById("light").hidden = !load(KEYS.light);
+    document.getElementById("lightOff").hidden = !load(KEYS.lightOff);
+  }
+
+  document.getElementById("setupForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var fields = [
+      { key: KEYS.gate, el: document.getElementById("gateUrl") },
+      { key: KEYS.garage, el: document.getElementById("garageUrl") },
+      { key: KEYS.light, el: document.getElementById("lightUrl") },
+      { key: KEYS.lightOff, el: document.getElementById("lightOffUrl") }
+    ];
+    var i, v;
+    for (i = 0; i < fields.length; i++) {
+      v = fields[i].el.value.trim();
+      if (v && v.indexOf("https://") !== 0) {
+        setupMsg.textContent = "Gli indirizzi devono iniziare con https://";
+        return;
+      }
+    }
+    var allSaved = true;
+    for (i = 0; i < fields.length; i++) {
+      v = fields[i].el.value.trim();
+      if (!v) continue;
+      if (!save(fields[i].key, v)) allSaved = false;
+      fields[i].el.value = "";
+    }
+    if (!(load(KEYS.gate) && load(KEYS.garage))) {
+      setupMsg.textContent = "Servono almeno gli indirizzi di cancello e garage.";
+      return;
+    }
+    setupMsg.textContent = allSaved ? "" : "Questo browser non permette di salvare: dovrai reinserirli a ogni apertura.";
+    show();
+  });
+
+  settingsBtn.addEventListener("click", function () {
+    main.hidden = true; setup.hidden = false; settingsBtn.hidden = true;
+  });
+  document.getElementById("resetBtn").addEventListener("click", function () {
+    clearAll(); setupMsg.textContent = "Indirizzi cancellati."; show();
+  });
+
+  // Doppio tocco: il primo chiede conferma, il secondo invia il comando
+  function wire(btn) {
+    var label = btn.getAttribute("data-label");
+    var key = btn.getAttribute("data-key");
+    var verb = btn.getAttribute("data-verb") || "aprire";
+    var hint = btn.getAttribute("data-confirm") || ("per " + verb + ": " + label.toLowerCase());
+    var state = "idle", timer = null;
+
+    function reset() {
+      state = "idle"; btn.className = "door"; btn.textContent = label;
+    }
+    function flash(cls, html, ms) {
+      btn.className = "door " + cls; btn.innerHTML = html;
+      clearTimeout(timer); timer = setTimeout(reset, ms);
+    }
+
+    btn.addEventListener("click", function () {
+      if (state === "idle") {
+        state = "confirm";
+        flash("confirm", "Tocca di nuovo<small>" + hint + "</small>", 4000);
+        return;
+      }
+      if (state === "confirm") {
+        state = "sending";
+        var url = load(key);
+        if (!url) { flash("error", "Indirizzo mancante<small>Apri le impostazioni</small>", 4000); return; }
+        btn.textContent = "Invio in corso...";
+        fetch(url, { method: "GET", mode: "no-cors" })
+          .then(function () { flash("sent", "Comando inviato<small>" + label + "</small>", 5000); })
+          .catch(function () { flash("error", "Non inviato<small>Controlla la connessione</small>", 5000); });
+      }
+    });
+  }
+  wire(document.getElementById("gate"));
+  wire(document.getElementById("garage"));
+  wire(document.getElementById("light"));
+  wire(document.getElementById("lightOff"));
+
+  show();
+})();
+</script>
+</body>
+</html>
