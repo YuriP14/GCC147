@@ -106,8 +106,11 @@
     <label>Indirizzo per spegnere la luce (facoltativo)
       <input id="lightOffUrl" type="password" inputmode="url" placeholder="https://api-v3.voicemonkey.io/trigger?...">
     </label>
-    <label>Indirizzo di Arrivo (facoltativo)
-      <input id="arrivoUrl" type="password" inputmode="url" placeholder="https://api-v3.voicemonkey.io/trigger?...">
+    <label>Arrivo di giorno, dalle 7 alle 19 (facoltativo)
+      <input id="arrivoGiornoUrl" type="password" inputmode="url" placeholder="https://api-v3.voicemonkey.io/trigger?...">
+    </label>
+    <label>Arrivo di sera, dalle 19 alle 7 (facoltativo)
+      <input id="arrivoSeraUrl" type="password" inputmode="url" placeholder="https://api-v3.voicemonkey.io/trigger?...">
     </label>
     <p class="msg" id="setupMsg" role="alert"></p>
     <button class="save" type="submit">Salva indirizzi</button>
@@ -117,7 +120,7 @@
 
 <script>
 (function () {
-  var KEYS = { gate: "cancelloUrl", garage: "garageUrl", light: "luceUrl", lightOff: "luceOffUrl", portone: "portoneUrl", arrivo: "arrivoUrl" };
+  var KEYS = { gate: "cancelloUrl", garage: "garageUrl", light: "luceUrl", lightOff: "luceOffUrl", portone: "portoneUrl", arrivoDay: "arrivoGiornoUrl", arrivoNight: "arrivoSeraUrl" };
   var memory = {}; // se il browser non permette di salvare, si usa solo per questa sessione
 
   function load(key) {
@@ -130,7 +133,7 @@
   }
   function clearAll() {
     memory = {};
-    try { localStorage.removeItem(KEYS.gate); localStorage.removeItem(KEYS.garage); localStorage.removeItem(KEYS.light); localStorage.removeItem(KEYS.lightOff); localStorage.removeItem(KEYS.portone); localStorage.removeItem(KEYS.arrivo); } catch (e) {}
+    try { localStorage.removeItem(KEYS.gate); localStorage.removeItem(KEYS.garage); localStorage.removeItem(KEYS.light); localStorage.removeItem(KEYS.lightOff); localStorage.removeItem(KEYS.portone); localStorage.removeItem(KEYS.arrivoDay); localStorage.removeItem(KEYS.arrivoNight); localStorage.removeItem("arrivoUrl"); } catch (e) {}
   }
 
   var main = document.getElementById("main");
@@ -146,7 +149,7 @@
     document.getElementById("light").hidden = !load(KEYS.light);
     document.getElementById("lightOff").hidden = !load(KEYS.lightOff);
     document.getElementById("portone").hidden = !load(KEYS.portone);
-    document.getElementById("arrivo").hidden = !load(KEYS.arrivo);
+    document.getElementById("arrivo").hidden = !(load(KEYS.arrivoDay) || load(KEYS.arrivoNight));
   }
 
   document.getElementById("setupForm").addEventListener("submit", function (e) {
@@ -157,7 +160,8 @@
       { key: KEYS.light, el: document.getElementById("lightUrl") },
       { key: KEYS.lightOff, el: document.getElementById("lightOffUrl") },
       { key: KEYS.portone, el: document.getElementById("portoneUrl") },
-      { key: KEYS.arrivo, el: document.getElementById("arrivoUrl") }
+      { key: KEYS.arrivoDay, el: document.getElementById("arrivoGiornoUrl") },
+      { key: KEYS.arrivoNight, el: document.getElementById("arrivoSeraUrl") }
     ];
     var i, v;
     for (i = 0; i < fields.length; i++) {
@@ -196,6 +200,16 @@
     var verb = btn.getAttribute("data-verb") || "aprire";
     var hint = btn.getAttribute("data-confirm") || ("per " + verb + ": " + label.toLowerCase());
     var state = "idle", timer = null;
+    var chosenKey = key;
+
+    // Arrivo: sceglie l'indirizzo in base all'ora del browser (giorno 7-19, sera 19-7)
+    function pickKey() {
+      if (btn.id !== "arrivo") return { key: key, tag: "" };
+      var h = new Date().getHours();
+      var day = h >= 7 && h < 19;
+      return { key: day ? KEYS.arrivoDay : KEYS.arrivoNight, tag: day ? " (giorno)" : " (sera)" };
+    }
+    var tag = "";
 
     function reset() {
       state = "idle"; btn.className = "door"; btn.textContent = label;
@@ -208,16 +222,18 @@
     btn.addEventListener("click", function () {
       if (state === "idle") {
         state = "confirm";
-        flash("confirm", "Tocca di nuovo<small>" + hint + "</small>", 4000);
+        var pick = pickKey();
+        chosenKey = pick.key; tag = pick.tag;
+        flash("confirm", "Tocca di nuovo<small>" + (btn.id === "arrivo" ? "per avviare Arrivo" + tag : hint) + "</small>", 4000);
         return;
       }
       if (state === "confirm") {
         state = "sending";
-        var url = load(key);
-        if (!url) { flash("error", "Indirizzo mancante<small>Apri le impostazioni</small>", 4000); return; }
+        var url = load(chosenKey);
+        if (!url) { flash("error", "Indirizzo mancante" + "<small>Apri le impostazioni" + tag + "</small>", 4000); return; }
         btn.textContent = "Invio in corso...";
         fetch(url, { method: "GET", mode: "no-cors" })
-          .then(function () { flash("sent", "Comando inviato<small>" + label + "</small>", 5000); })
+          .then(function () { flash("sent", "Comando inviato<small>" + label + tag + "</small>", 5000); })
           .catch(function () { flash("error", "Non inviato<small>Controlla la connessione</small>", 5000); });
       }
     });
